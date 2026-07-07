@@ -24,3 +24,41 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+
+/* Posicionamento do container no canto superior direito */
+.my-custom-zoom {
+  position: absolute !important;
+  top: 16px !important;
+  right: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  z-index: 50 !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+}
+
+/* Estilização dos botões (+ e -) */
+.my-custom-zoom button {
+  background-color: #ffffff !important;
+  color: #0f176a !important; /* slate-900 */
+  border: 1px solid #e2e8f0 !important; /* slate-200 */
+  border-radius: 8px !important;
+  font-size: 20px !important;
+  font-weight: 400 !important;
+  width: 24px !important;
+  height: 24px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s !important;
+}
+
+/* Efeito Hover nos botões */
+.my-custom-zoom button:hover {
+  background-color: #f8fafc !important; /* slate-50 */
+  color: #2563eb !important; /* blue-600 */
+  font-size: 26px !important;
+}
