@@ -1,11 +1,13 @@
 "use client";
 
-import { createContext, useContext, useRef, ReactNode, useState, useEffect, useMemo } from "react";
+import { createContext, useContext, useRef, ReactNode, useState, useEffect, useMemo, RefObject } from "react";
 import Map from "ol/Map";
-import { Buoys } from "@/app/types/buoys";
-import { tileLayerType, windowSizeType } from "@/app/types/diverse";
+import { Buoys } from "@/app/utils/types/buoys";
+import { windowSizeType } from "@/app/utils/types/diverse";
 import TileLayer from "ol/layer/Tile";
 import { XYZ } from "ol/source";
+import useUpdateActiveTileLayer from "@/app/utils/hooks/useUpdateActiveTileLayer";
+import { defaultBasemap, tileLayerType } from "@/app/utils/constants/BaseTyleLayers";
 
 interface MapContextType
 {
@@ -18,7 +20,6 @@ interface MapContextType
     changeBasemap: (url: tileLayerType) => void
 
     activeTileLayer: tileLayerType
-    setActiveTileLayer: React.Dispatch<React.SetStateAction<tileLayerType>>
 }
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
@@ -27,13 +28,18 @@ const MapContext = createContext<MapContextType | undefined>(undefined);
 type MapProviderProps = {
     children: ReactNode;
     points: Buoys
+    initialBasemap: tileLayerType
 };
 
-export function MapProvider({ children, points }: MapProviderProps)
+export function MapProvider({ children, points, initialBasemap }: MapProviderProps)
 {
     const [isMapReady, setIsMapReady] = useState(false);
     const [windowSize, setWindowSize] = useState<windowSizeType>('desktop');
-    const [activeTileLayer, setActiveTileLayer] = useState<tileLayerType>("osm");
+    const mapRef = useRef<Map | null>(null);
+    const [activeTileLayer, setActiveTileLayer] = useState<tileLayerType>(initialBasemap || defaultBasemap);
+
+    useUpdateActiveTileLayer({ initialBasemap, isMapReady, mapRef, activeTileLayer, setActiveTileLayer });
+
 
     useEffect(() =>
     { // Atualiza o estado do tamanho da janela quando o componente é montado e quando a janela é redimensionada
@@ -53,7 +59,7 @@ export function MapProvider({ children, points }: MapProviderProps)
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    const mapRef = useRef<Map | null>(null);
+
     const setMap = (map: Map) =>
     {
         mapRef.current = map;
@@ -87,7 +93,7 @@ export function MapProvider({ children, points }: MapProviderProps)
         isMapReady,
         windowSize,
         changeBasemap,
-        activeTileLayer, setActiveTileLayer
+        activeTileLayer,
     }), [
         // Coloque aqui TUDO o que é estado ou prop mutável
         points,

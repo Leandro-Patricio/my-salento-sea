@@ -1,5 +1,6 @@
 import MainMapPage from "./components/MainMapPage/MainMapPage";
-import { Buoys } from "./types/buoys";
+import { Buoys } from "./utils/types/buoys";
+import { tileLayerType } from "./utils/types/diverse";
 
 
 const points: Buoys = [
@@ -8,11 +9,28 @@ const points: Buoys = [
   { name: "Leuca", coords: [18.36, 39.78] },
 ]
 
-export default function Home()
+type PageProps = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function Home({ searchParams }: PageProps)
 {
+  // 1. Aguarda a resolução dos searchParams (obrigatório no Next.js moderno)
+  const params = await searchParams;
+
+  // 2. Extrai o parâmetro do basemap e valida se ele é um dos tipos aceitos
+  const urlBasemap = params.basemap as string;
+
+  // Se o que estiver na URL não for válido, define 'osm' como fallback seguro
+  const initialBasemap: tileLayerType = ["osm", "esri", "dark"].includes(urlBasemap) ? (urlBasemap as tileLayerType) : "osm";
+
+
   return (
     <main className="h-full w-full">
-      <MainMapPage points={points} />
+      <MainMapPage
+        points={points}
+        initialBasemap={initialBasemap}
+      />
     </main>
   );
 }

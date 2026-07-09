@@ -22,7 +22,7 @@ interface SingleBuoyProps
 
 export default function SingleBuoy({ buoy }: SingleBuoyProps)
 {
-    const { mapRef } = useMap();
+    const { mapRef, activeTileLayer } = useMap();
     const anchorElementRef = useRef<HTMLDivElement>(null);
     const [isOpen, setIsOpen] = useState(false);
 

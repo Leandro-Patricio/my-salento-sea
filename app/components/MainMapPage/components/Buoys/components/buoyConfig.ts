@@ -5,7 +5,10 @@ import { fromLonLat } from "ol/proj";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
 import { Icon, Style } from "ol/style";
-import { windowSizeType } from "@/app/types/diverse";
+import { windowSizeType } from "@/app/utils/types/diverse";
+import { buoySvg } from "@/public/buoySvg";
+import { tileLayerType } from "@/app/utils/constants/BaseTyleLayers";
+
 
 export interface Buoy
 {
@@ -13,9 +16,16 @@ export interface Buoy
     coords: number[]
 }
 
-export function buoyConfig(map: Map, buoys: Buoy[], windowSize: windowSizeType)
+type buoyConfigType = {
+    map: Map,
+    points: Buoy[],
+    windowSize: windowSizeType
+    activeTileLayer: tileLayerType
+}
+
+export function buoyConfig({ map, points, windowSize, activeTileLayer }: buoyConfigType)
 {
-    const features = buoys.map((buoy) =>
+    const features = points.map((buoy) =>
     {
         const feature = new Feature({
             geometry: new Point(fromLonLat(buoy.coords)),
@@ -24,12 +34,13 @@ export function buoyConfig(map: Map, buoys: Buoy[], windowSize: windowSizeType)
         // Vincula os dados brutos à feature
         feature.setProperties({ buoyData: buoy });
 
+        const imageColor = activeTileLayer === 'osm' ? 'black' : 'white';
 
         feature.setStyle(
             new Style({
                 image: new Icon({
                     anchor: [0.5, 1],
-                    src: "/buoy.svg",
+                    src: getBuoyIconUrl(imageColor),
                     scale: windowSize === 'mobile' ? 0.07 : 0.1,
                 }),
             })
@@ -53,3 +64,11 @@ export function buoyConfig(map: Map, buoys: Buoy[], windowSize: windowSizeType)
 
     return vectorLayer; // Retorna a camada caso queira removê-la depois
 }
+
+
+export const getBuoyIconUrl = (color: string): string =>
+{
+    const svgString = buoySvg(color);
+    // Transforma a string XML do vetor em uma imagem de dados legível
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
+};

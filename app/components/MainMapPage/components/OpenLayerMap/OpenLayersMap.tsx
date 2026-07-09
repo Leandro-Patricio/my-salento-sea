@@ -15,7 +15,7 @@ import Zoom from "ol/control/Zoom";
 export default function OpenLayersMap()
 {
     const mapElement = useRef<HTMLDivElement>(null);
-    const { setMap, clearMap, windowSize } = useMap(); // Pega as funções do contexto
+    const { setMap, clearMap, windowSize, activeTileLayer } = useMap(); // Pega as funções do contexto
 
     useEffect(() =>
     {
@@ -45,8 +45,8 @@ export default function OpenLayersMap()
             view: new View({
                 center: fromLonLat([18.20, 40.15]), // Centro do Salento
                 zoom: getInitialZoom(),       // Zoom inicial
-                minZoom: 9,     // Limite máximo de "zoom out" (afastar) - não deixa ver o mundo todo
-                maxZoom: 14,    // Limite máximo de "zoom in" (aproximar) - bom para não estourar os tiles brutos
+                minZoom: 7,     // Limite máximo de "zoom out" (afastar) - não deixa ver o mundo todo
+                maxZoom: 16,    // Limite máximo de "zoom in" (aproximar) - bom para não estourar os tiles brutos
 
                 extent: SALENTO_EXTENT, // 🔥 Trava o movimento do mapa estritamente dentro deste quadrante
                 smoothExtentConstraint: true // Deixa o efeito de "mola" mais suave quando bate na borda do limite
