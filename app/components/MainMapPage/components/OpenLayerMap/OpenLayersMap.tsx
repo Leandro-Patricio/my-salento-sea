@@ -21,6 +21,18 @@ export default function OpenLayersMap()
     {
         if (!mapElement.current) return;
 
+        const getInitialZoom = (): number =>
+        {
+            // Garante que não vai quebrar no Server-Side Rendering (SSR) do Next.js
+            if (typeof window === "undefined") return 9;
+
+            const width = window.innerWidth;
+
+            if (width < 640) return 7; // 📱 Telas pequenas (Mobile) - Zoom mais afastado para ver tudo
+            if (width < 1024) return 8; // 輕 Tablets
+            return 9;                   // 💻 Desktops - Zoom mais próximo e detalhado
+        };
+
         const map = new Map({
             target: mapElement.current,
             layers: [
@@ -32,9 +44,10 @@ export default function OpenLayersMap()
                     className: "my-custom-zoom"
                 })
             ]),
+
             view: new View({
                 center: fromLonLat([18.20, 40.15]), // Centro do Salento
-                zoom: 10,       // Zoom inicial
+                zoom: getInitialZoom(),       // Zoom inicial
                 minZoom: 9,     // Limite máximo de "zoom out" (afastar) - não deixa ver o mundo todo
                 maxZoom: 14,    // Limite máximo de "zoom in" (aproximar) - bom para não estourar os tiles brutos
 

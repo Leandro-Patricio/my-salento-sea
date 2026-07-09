@@ -125,6 +125,7 @@ export default function SingleBuoy({ buoy }: SingleBuoyProps)
 
         const onPointerMove = (moveEvent: PointerEvent) =>
         {
+            moveEvent.preventDefault(); // Evita seleção de texto ou outros efeitos indesejados
             // Pega a posição atual do mouse
             const currentMousePixel = map.getEventPixel(moveEvent);
 
@@ -158,7 +159,7 @@ export default function SingleBuoy({ buoy }: SingleBuoyProps)
             window.removeEventListener("pointerup", onPointerUp);
         };
 
-        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointermove", onPointerMove, { passive: false });
         window.addEventListener("pointerup", onPointerUp);
     };
 
@@ -178,42 +179,47 @@ export default function SingleBuoy({ buoy }: SingleBuoyProps)
     };
 
     return (
-        <div ref={anchorElementRef} className="absolute">
-            {isOpen && (
-                <div
-                    className="bg-white rounded-xl shadow-2xl border border-slate-100 min-w-60 z-50 
+        <div ref={anchorElementRef} className={` ${isOpen ? "absolute" : "hidden"}`}>
+            <div
+                className="bg-white rounded-xl shadow-2xl border border-slate-100 min-w-60 z-50 
                         select-none overflow-hidden animate-in fade-in-50"
-                    style={{ transform: "translate(-50%, -50%)" }}
+                style={{
+                    transform: "translate(-50%, -50%)",
+                    touchAction: "none", // Evita que o navegador interprete gestos de toque como scroll ou zoom
+                }}
+            >
+                {/* BARRA DE ARRASTO */}
+                <div
+                    onPointerDown={handleDragStart}
+                    className="bg-slate-50 border-b border-slate-100 
+                    px-4 py-2 flex justify-between items-center cursor-grab 
+                    active:cursor-grabbing text-slate-500
+                    touch-none
+                    "
                 >
-                    {/* BARRA DE ARRASTO */}
-                    <div
-                        onPointerDown={handleDragStart}
-                        className="bg-slate-50 border-b border-slate-100 px-4 py-2 flex justify-between items-center cursor-grab active:cursor-grabbing text-slate-500"
+                    <span className="text-xs font-bold uppercase tracking-wider">
+                        {buoy.name}
+                    </span>
+                    <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={handleClose}
+                        className="text-slate-400 hover:text-slate-600 text-xs font-bold p-1 hover:bg-slate-200 rounded transition-colors"
                     >
-                        <span className="text-xs font-bold uppercase tracking-wider">
-                            {buoy.name}
-                        </span>
-                        <button
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={handleClose}
-                            className="text-slate-400 hover:text-slate-600 text-xs font-bold p-1 hover:bg-slate-200 rounded transition-colors"
-                        >
-                            ✕
-                        </button>
-                    </div>
+                        ✕
+                    </button>
+                </div>
 
-                    {/* CORPO DO POPUP */}
-                    <div className="p-4" onPointerDown={(e) => e.stopPropagation()}>
-                        <h3 className="font-bold text-slate-800 text-base leading-tight mb-1">
-                            {buoy.name}
-                        </h3>
-                        <p className="text-xs text-blue-600 font-semibold mb-3">Monitoramento Conectado</p>
-                        <div className="w-full h-24 bg-slate-50 border border-dashed border-slate-200 rounded flex items-center justify-center text-xs text-slate-400">
-                            [Gráfico]
-                        </div>
+                {/* CORPO DO POPUP */}
+                <div className="p-4" onPointerDown={(e) => e.stopPropagation()}>
+                    <h3 className="font-bold text-slate-800 text-base leading-tight mb-1">
+                        {buoy.name}
+                    </h3>
+                    <p className="text-xs text-blue-600 font-semibold mb-3">Monitoramento Conectado</p>
+                    <div className="w-full h-24 bg-slate-50 border border-dashed border-slate-200 rounded flex items-center justify-center text-xs text-slate-400">
+                        [Gráfico]
                     </div>
                 </div>
-            )}
+            </div>
         </div>
     );
 }

@@ -23,12 +23,13 @@ export function buoyConfig(map: Map, buoys: Buoy[])
         // Vincula os dados brutos à feature
         feature.setProperties({ buoyData: buoy });
 
+
         feature.setStyle(
             new Style({
                 image: new Icon({
                     anchor: [0.5, 1],
                     src: "/buoy.svg",
-                    scale: .1,
+                    scale: typeof window !== "undefined" && window.innerWidth < 640 ? 0.07 : 0.1,
                 }),
             })
         );
