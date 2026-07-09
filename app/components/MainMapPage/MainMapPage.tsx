@@ -4,6 +4,7 @@ import { MapProvider } from "./components/OpenLayerMap/MapContext";
 import LeftMenu from "./components/LeftMenu/LeftMenu";
 import BuoyPopup from "./components/Buoys/BuoysWithPopup";
 import { Buoys } from "@/app/types/buoys";
+import RightMenu from "./components/RightMenu/RightMenu";
 
 // Import dinâmico com SSR desabilitado para performance e segurança de build
 const SalentoMap = dynamic(() => import("./components/OpenLayerMap/OpenLayersMap"), {
@@ -30,6 +31,7 @@ export default function MainMapPage({ points }: MainMapPageProps)
             <main className="h-full w-full">
                 <SalentoMap />
                 <LeftMenu />
+                <RightMenu />
                 <BuoyPopup />
             </main>
         </MapProvider>

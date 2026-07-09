@@ -8,7 +8,7 @@ import SingleBuoy from "./components/SingleBuoy";
 
 export default function Buoys()
 {
-    const { mapRef, points, isMapReady } = useMap();
+    const { mapRef, points, isMapReady, windowSize } = useMap();
 
     useEffect(() =>
     {
@@ -16,16 +16,10 @@ export default function Buoys()
         if (!map || !isMapReady) return;
 
         // Desenha os ícones das boias no mapa
-        const buoyLayer = buoyConfig(map, points);
+        const buoyLayer = buoyConfig(map, points, windowSize);
 
-        return () =>
-        {
-            if (map)
-            {
-                map.removeLayer(buoyLayer);
-            }
-        };
-    }, [isMapReady, points, mapRef]);
+        return () => { if (map) map.removeLayer(buoyLayer); };
+    }, [isMapReady, points, mapRef, windowSize]);
 
     if (!isMapReady) return null;
 

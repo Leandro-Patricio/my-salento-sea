@@ -15,7 +15,7 @@ import Zoom from "ol/control/Zoom";
 export default function OpenLayersMap()
 {
     const mapElement = useRef<HTMLDivElement>(null);
-    const { setMap, clearMap } = useMap(); // Pega as funções do contexto
+    const { setMap, clearMap, windowSize } = useMap(); // Pega as funções do contexto
 
     useEffect(() =>
     {
@@ -23,14 +23,11 @@ export default function OpenLayersMap()
 
         const getInitialZoom = (): number =>
         {
-            // Garante que não vai quebrar no Server-Side Rendering (SSR) do Next.js
-            if (typeof window === "undefined") return 9;
+            if (windowSize === 'desktop') return 9  // 💻 Desktops - Zoom mais próximo e detalhado (Default)
+            if (windowSize === 'mobile') return 7// 📱 Telas pequenas (Mobile) - Zoom mais afastado para ver tudo
+            if (windowSize === 'tablet') return 8
 
-            const width = window.innerWidth;
-
-            if (width < 640) return 7; // 📱 Telas pequenas (Mobile) - Zoom mais afastado para ver tudo
-            if (width < 1024) return 8; // 輕 Tablets
-            return 9;                   // 💻 Desktops - Zoom mais próximo e detalhado
+            return 9;    // Fallback para qualquer outro caso               
         };
 
         const map = new Map({

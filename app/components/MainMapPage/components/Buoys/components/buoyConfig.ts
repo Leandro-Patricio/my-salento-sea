@@ -5,6 +5,7 @@ import { fromLonLat } from "ol/proj";
 import VectorLayer from "ol/layer/Vector";
 import VectorSource from "ol/source/Vector";
 import { Icon, Style } from "ol/style";
+import { windowSizeType } from "@/app/types/diverse";
 
 export interface Buoy
 {
@@ -12,7 +13,7 @@ export interface Buoy
     coords: number[]
 }
 
-export function buoyConfig(map: Map, buoys: Buoy[])
+export function buoyConfig(map: Map, buoys: Buoy[], windowSize: windowSizeType)
 {
     const features = buoys.map((buoy) =>
     {
@@ -29,7 +30,7 @@ export function buoyConfig(map: Map, buoys: Buoy[])
                 image: new Icon({
                     anchor: [0.5, 1],
                     src: "/buoy.svg",
-                    scale: typeof window !== "undefined" && window.innerWidth < 640 ? 0.07 : 0.1,
+                    scale: windowSize === 'mobile' ? 0.07 : 0.1,
                 }),
             })
         );
