@@ -1,6 +1,6 @@
 import MainMapPage from "./components/MainMapPage/MainMapPage";
+import { tileLayerType } from "./utils/constants/BaseTyleLayers";
 import { Buoys } from "./utils/types/buoys";
-import { tileLayerType } from "./utils/types/diverse";
 
 
 const points: Buoys = [
