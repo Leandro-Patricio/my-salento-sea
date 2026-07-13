@@ -1,7 +1,7 @@
 "use client";
 
 
-import { useMap } from "../OpenLayerMap/MapContext";
+import { useMap } from "../../Contexts/MapContext";
 import Link from "next/link";
 import Image from "next/image";
 import BasemapSwitcher from "./BasemapSwitcher";

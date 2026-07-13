@@ -1,8 +1,10 @@
 "use client";
 
 import { fromLonLat } from "ol/proj";
-import { useMap } from "../OpenLayerMap/MapContext";
+import { useMap } from "../../Contexts/MapContext";
 import { useState } from "react";
+import { MetricType, STATIC_METRICS_LIST } from "@/app/utils/constants/Scales";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 
 
@@ -10,6 +12,18 @@ export default function RightMenu()
 {
     const { mapRef, points, windowSize } = useMap();
     const [rightMenuOpen, setRightMenuOpen] = useState(false);
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    const currentMetric = (searchParams.get("metric") || "temperature") as MetricType;
+
+    const handleMetricChange = (metric: MetricType) =>
+    {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("metric", metric);
+        router.push(`${pathname}?${params.toString()}`);
+    };
 
     const handleFlyTo = (coords: number[]) =>
     {
@@ -48,7 +62,29 @@ export default function RightMenu()
                 </div>
             </button>
 
-
+            <div className="flex flex-col gap-2">
+                <h2 className="font-bold text-slate-800 text-sm border-b pb-1">Métricas de Exibição</h2>
+                <div className="flex flex-col gap-1.5">
+                    {STATIC_METRICS_LIST.map((m) =>
+                    {
+                        const isActive = currentMetric === m.id;
+                        return (
+                            <button
+                                key={m.id}
+                                onClick={() => handleMetricChange(m.id)}
+                                className={`w-full text-left text-sm py-2 px-3 rounded-lg border transition-all font-medium flex items-center gap-2
+                                        ${isActive
+                                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                                        : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
+                                    }`}
+                            >
+                                <span>{m.icon}</span>
+                                {m.name}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
 
             <div className={`w-full h-full  rounded-[0_0_0_1rem]   shadow-lg border border-slate-200      bg-[#AFEEEE]`}>
 
@@ -68,3 +104,4 @@ export default function RightMenu()
         </div >
     );
 }
+

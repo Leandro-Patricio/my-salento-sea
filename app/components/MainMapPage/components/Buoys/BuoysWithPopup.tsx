@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useMap } from "../OpenLayerMap/MapContext";
+import { useMap } from "../../Contexts/MapContext";
 import { buoyConfig } from "./components/buoyConfig";
 import SingleBuoy from "./components/SingleBuoy";
 

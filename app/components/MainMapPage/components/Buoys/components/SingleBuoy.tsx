@@ -11,7 +11,7 @@ import MapBrowserEvent from "ol/MapBrowserEvent";
 import { fromLonLat } from "ol/proj";
 import { unByKey } from "ol/Observable";
 import { EventsKey } from "ol/events";
-import { useMap } from "../../OpenLayerMap/MapContext";
+import { useMap } from "../../../Contexts/MapContext";
 import { Buoy } from "./buoyConfig";
 
 

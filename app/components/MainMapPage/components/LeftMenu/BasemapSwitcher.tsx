@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useMap } from "../OpenLayerMap/MapContext";
+import { useMap } from "../../Contexts/MapContext";
 import Link from "next/link";
 import { basemaps } from "@/app/utils/constants/BaseTyleLayers";
 

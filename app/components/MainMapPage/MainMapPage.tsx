@@ -1,11 +1,13 @@
 'use client'
 import dynamic from "next/dynamic";
-import { MapProvider } from "./components/OpenLayerMap/MapContext";
+import { MapProvider } from "./Contexts/MapContext";
 import LeftMenu from "./components/LeftMenu/LeftMenu";
 import { Buoys } from "@/app/utils/types/buoys";
 import RightMenu from "./components/RightMenu/RightMenu";
 import { tileLayerType } from "@/app/utils/constants/BaseTyleLayers";
 import BuoysComponent from "./components/Buoys/BuoysWithPopup";
+import { WeatherDataProvider } from "./Contexts/WeatherDataContext";
+import TimelineSlider from "./components/TimelineSlider/TimelineSlider";
 
 
 // Import dinâmico com SSR desabilitado para performance e segurança de build
@@ -32,12 +34,15 @@ export default function MainMapPage({ points, initialBasemap }: MainMapPageProps
             points={points}
             initialBasemap={initialBasemap}
         >
-            <main className="h-full w-full">
-                <SalentoMap />
-                <LeftMenu />
-                <RightMenu />
-                <BuoysComponent />
-            </main>
+            <WeatherDataProvider >
+                <main className="h-full w-full">
+                    <SalentoMap />
+                    <LeftMenu />
+                    <RightMenu />
+                    <BuoysComponent />
+                    <TimelineSlider />
+                </main>
+            </WeatherDataProvider>
         </MapProvider>
     );
 }
