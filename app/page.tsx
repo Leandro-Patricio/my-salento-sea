@@ -1,9 +1,8 @@
-import { Suspense } from "react";
+
 import MainMapPage from "./components/MainMapPage/MainMapPage";
 import { tileLayerType } from "./utils/constants/BaseTyleLayers";
-import { githubNetcdfData } from "./utils/fetchs/githubNetcdfData";
 import { Buoys } from "./utils/types/buoys";
-import MeteorologicalData from "./utils/fetchs/SuspenseGetNetcdfData";
+// import MeteorologicalData from "./utils/fetchs/SuspenseGetNetcdfData";
 
 
 const points: Buoys = [
