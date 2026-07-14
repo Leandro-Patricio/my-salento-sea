@@ -7,6 +7,7 @@ import { METRIC_STYLES, MetricType } from "../constants/Scales";
 import { fillTileDataWithReprojection } from "../functions/fillTileDataWithReprojection";
 import { DailySliceResponse } from "../types/weatherGrid";
 import { transform } from "ol/proj";
+import { createXYZ } from "ol/tilegrid";
 
 export interface WeatherHoverData
 {
@@ -26,9 +27,8 @@ interface UseWebGLWeatherLayerParams
     hour: number;
     metric: MetricType;
     zIndex?: number;
-    onHover: (data: WeatherHoverData | null) => void; // 🎯 Callback adicionado
+    onHover: (data: WeatherHoverData | null) => void;
 }
-
 
 export function useWebGLWeatherLayer({
     extent3857,
@@ -52,7 +52,8 @@ export function useWebGLWeatherLayer({
     const activeExtent4326Ref = useRef<number[] | null>(null);
     const activeDimensionsRef = useRef<{ lons: number; lats: number } | null>(null);
 
-    // 🎯 Tipagem estrita da referência de estado interno
+    const appliedMetricRef = useRef<MetricType | null>(null);
+
     const stateRef = useRef<{
         day: number;
         hour: number;
@@ -60,6 +61,7 @@ export function useWebGLWeatherLayer({
         dailyData: DailySliceResponse | null;
     }>({ day, hour, metric, dailyData });
 
+    // Sincroniza referências
     useEffect(() =>
     {
         activeExtent3857Ref.current = extent3857;
@@ -71,16 +73,16 @@ export function useWebGLWeatherLayer({
     const lons = dimensions?.lons;
     const lats = dimensions?.lats;
 
-    // 1. CRIAÇÃO DA CAMADA
+    // 1. CRIAÇÃO DA CAMADA (Apenas se houver dados prontos para desenho)
     useEffect(() =>
     {
         const map = mapRef.current;
-        if (!map || !isMapReady) return;
+        if (!map || !isMapReady || !extent3857) return;
 
-        // Se os dados de grid ainda não carregaram, registramos o ouvinte de qualquer forma,
-        // pois as referências internas (Refs) serão atualizadas assim que o dado chegar.
-        const tileWidth = 256;
-        const tileHeight = 256;
+        // 🎯 EVITA FLICKER E ERROS DE BUFFER NA INICIALIZAÇÃO:
+        // Só criamos a camada física do WebGL no mapa quando os dados do Grid 
+        // já estiverem processados e disponíveis na referência de memória.
+        if (!gridDataRef.current) return;
 
         const dataTileSource: DataTileSource = new DataTileSource({
             loader: (z, x, y): Float32Array =>
@@ -99,24 +101,8 @@ export function useWebGLWeatherLayer({
                     return tileData;
                 }
 
-                const tileExtent = tileGrid.getTileCoordExtent([z, x, y]);
-
-                // 🎯 LOG DE INVESTIGAÇÃO:
-                // Queremos ver se o loader entra no 'overlaps' ou se ele é descartado de cara
-                const overlaps = (
-                    tileExtent[0] < activeExtent3857[2] && tileExtent[2] > activeExtent3857[0] &&
-                    tileExtent[1] < activeExtent3857[3] && tileExtent[3] > activeExtent3857[1]
-                );
-
-                if (z === 8 || z === 9)
-                { // Níveis de zoom onde costuma dar o problema
-                    console.log(`[Zoom ${z}] Tile: ${x},${y} | Overlaps: ${overlaps} | Extent Tile: [${tileExtent.map(n => Math.round(n))}] | Extent Ativo: [${activeExtent3857.map(n => Math.round(n))}]`);
-                }
-
-                if (!overlaps) return tileData;
-
                 return fillTileDataWithReprojection({
-                    tileExtent,
+                    tileExtent: tileGrid.getTileCoordExtent([z, x, y]),
                     tileWidth,
                     tileHeight,
                     activeExtent3857,
@@ -129,22 +115,25 @@ export function useWebGLWeatherLayer({
             bandCount: 1,
             projection: "EPSG:3857",
             wrapX: false,
-            // 🎯 Força o OpenLayers a calcular as transições de zoom com base na View ativa do seu mapa
-            tileGrid: map.getView().getProjection().getExtent()
-                ? undefined // Deixa o OpenLayers usar o grid padrão da projeção global
-                : undefined
+            interpolate: false,
+            tileGrid: extent3857 ? createXYZ({
+                extent: map.getView().getProjection().getExtent(), // Cobertura matemática global de zoom
+                tileSize: [tileWidth, tileHeight]
+            }) : undefined
         });
         tileSourceRef.current = dataTileSource;
 
-        // 2. Criamos a camada WebGL
         const webglLayer = new WebGLTileLayer({
             source: dataTileSource,
             style: METRIC_STYLES[metric],
-            // 🎯 REMOVIDO: 'extent: extent3857 || undefined'
-            // Remover isso evita o clipping (corte de renderização) agressivo que faz a camada sumir no zoom.
-            zIndex
+            zIndex,
+            preload: 1,
+            cacheSize: 512,
+            opacity: 0.99,
         });
+
         webglLayerRef.current = webglLayer;
+        appliedMetricRef.current = metric;
         map.addLayer(webglLayer);
 
         // EVENTO DE HOVER SEGURO
@@ -154,8 +143,6 @@ export function useWebGLWeatherLayer({
             const activeExtent = activeExtent3857Ref.current;
             const activeDimensions = activeDimensionsRef.current;
             const { dailyData: currentData, metric: activeMetric, hour: activeHour } = stateRef.current;
-
-            // Coleta o evento de mouse do navegador para obter as coordenadas na viewport da tela
             const nativeEvent = evt.originalEvent;
 
             if (!activeExtent || !activeDimensions || !currentData || !nativeEvent)
@@ -214,10 +201,8 @@ export function useWebGLWeatherLayer({
             }
         };
 
-        // 2. Para registrar no OL de forma limpa, fazemos o cast do handler para uma função de assinatura genérica do OpenLayers
         const eventType = "pointermove";
         const listener = handlePointerMove as (evt: import("ol/events/Event").default) => void;
-
         map.on(eventType, listener);
 
         return () =>
@@ -226,18 +211,17 @@ export function useWebGLWeatherLayer({
             map.un(eventType, listener);
             tileSourceRef.current = null;
             webglLayerRef.current = null;
+            appliedMetricRef.current = null;
         };
-        // 🎯 Removido dependências estritas de dados brutos que travavam o registro do evento
-    }, [mapRef, isMapReady, zIndex]);
+        // 🎯 Adicionado 'dailyData' e as resoluções para disparar o ciclo apenas quando o dado carregar de fato.
+    }, [mapRef, isMapReady, zIndex, extent3857, dailyData, lons, lats]);
 
-    // 2. ATUALIZAÇÃO DA TEXTURA WEBGL
+    // 2. PROCESSAMENTO E ATUALIZAÇÃO DA TEXTURA WEBGL
     useEffect(() =>
     {
         const updateLayerState = () =>
         {
-            if (!dailyData || !tileSourceRef.current || !webglLayerRef.current || !lons || !lats) return;
-
-            console.log("🔄 [Efeito Atualização] Executando updateLayerState. O tileSource está sendo resetado!");
+            if (!dailyData || !lons || !lats) return;
 
             const rawMetrics = dailyData.metrics[metric];
             if (!rawMetrics) return;
@@ -259,28 +243,30 @@ export function useWebGLWeatherLayer({
                 }
             }
 
+            // 1. Primeiro atualizamos os dados brutos na referência
             gridDataRef.current = flatData;
 
-            webglLayerRef.current.setStyle(METRIC_STYLES[metric]);
-
-            tileSourceRef.current.clear();
-            tileSourceRef.current.refresh();
-
-            // 🎯 Força o OpenLayers a recalcular e redesenhar os buffers WebGL imediatamente
-            mapRef.current?.render();
-
-            if (extent3857)
+            // 2. Se a camada já está ativa no mapa, atualizamos de forma suave na GPU
+            if (webglLayerRef.current && tileSourceRef.current)
             {
-                webglLayerRef.current.setExtent(extent3857);
-            }
-            webglLayerRef.current.setStyle(METRIC_STYLES[metric]);
+                if (appliedMetricRef.current !== metric)
+                {
+                    webglLayerRef.current.setStyle(METRIC_STYLES[metric]);
+                    appliedMetricRef.current = metric;
+                }
 
-            tileSourceRef.current.clear();
-            tileSourceRef.current.refresh();
-            tileSourceRef.current.changed();
-            mapRef.current?.render();
+                if (extent3857)
+                {
+                    webglLayerRef.current.setExtent(extent3857);
+                }
+
+                tileSourceRef.current.changed();
+            }
         };
 
         updateLayerState();
-    }, [dailyData, hour, metric, extent3857, lons, lats, mapRef]);
+    }, [dailyData, hour, metric, extent3857, lons, lats]);
 }
+
+const tileWidth = 256;
+const tileHeight = 256;
