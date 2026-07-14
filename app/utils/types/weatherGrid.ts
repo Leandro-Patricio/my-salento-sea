@@ -17,3 +17,18 @@ export interface DailySliceResponse
         wind_dir: Float64Array | number[];
     };
 }
+
+export interface DailyWeatherData
+{
+    lons: number[];
+    lats: number[];
+    metrics: Record<string, number[]>;
+}
+
+export interface WeatherDatasetState
+{
+    extent3857: number[] | null;
+    extent4326: number[] | null;
+    dimensions: { lons: number; lats: number } | null;
+    dailyData: DailyWeatherData | null; // <-- Sem any
+}

@@ -2,56 +2,71 @@ import { useEffect, useRef } from "react";
 import WebGLTileLayer from "ol/layer/WebGLTile";
 import DataTileSource from "ol/source/DataTile";
 import MapBrowserEvent from "ol/MapBrowserEvent";
-import { transform } from "ol/proj";
 import { useMap } from "@/app/components/MainMapPage/Contexts/MapContext";
-import { useWeatherData } from "@/app/components/MainMapPage/Contexts/WeatherDataContext";
 import { METRIC_STYLES, MetricType } from "../constants/Scales";
 import { fillTileDataWithReprojection } from "../functions/fillTileDataWithReprojection";
+import { DailySliceResponse } from "../types/weatherGrid";
+import { transform } from "ol/proj";
 
+export interface WeatherHoverData
+{
+    value: number;
+    lat: number;
+    lon: number;
+    pixel: [number, number];
+}
 
 interface UseWebGLWeatherLayerParams
 {
     extent3857: number[] | null;
     extent4326: number[] | null;
     dimensions: { lons: number; lats: number } | null;
+    dailyData: DailySliceResponse | null;
     day: number;
     hour: number;
     metric: MetricType;
     zIndex?: number;
+    onHover: (data: WeatherHoverData | null) => void; // 🎯 Callback adicionado
 }
+
 
 export function useWebGLWeatherLayer({
     extent3857,
     extent4326,
     dimensions,
+    dailyData,
     day,
     hour,
     metric,
-    zIndex = 1
+    zIndex = 1,
+    onHover
 }: UseWebGLWeatherLayerParams)
 {
     const { mapRef, isMapReady } = useMap();
-    const { getOrFetchDay } = useWeatherData();
 
     const tileSourceRef = useRef<DataTileSource | null>(null);
     const webglLayerRef = useRef<WebGLTileLayer | null>(null);
-
-    // 🎯 O CORAÇÃO DO DADO: Esta ref mantém a matriz Float32Array compartilhada entre o loader e o atualizador
     const gridDataRef = useRef<Float32Array | null>(null);
 
-    // Refs auxiliares síncronas para o loader ler sem closures presas
     const activeExtent3857Ref = useRef<number[] | null>(null);
     const activeExtent4326Ref = useRef<number[] | null>(null);
     const activeDimensionsRef = useRef<{ lons: number; lats: number } | null>(null);
-    const stateRef = useRef({ day, hour, metric });
+
+    // 🎯 Tipagem estrita da referência de estado interno
+    const stateRef = useRef<{
+        day: number;
+        hour: number;
+        metric: MetricType;
+        dailyData: DailySliceResponse | null;
+    }>({ day, hour, metric, dailyData });
 
     useEffect(() =>
     {
         activeExtent3857Ref.current = extent3857;
         activeExtent4326Ref.current = extent4326;
         activeDimensionsRef.current = dimensions;
-        stateRef.current = { day, hour, metric };
-    }, [extent3857, extent4326, dimensions, day, hour, metric]);
+        stateRef.current = { day, hour, metric, dailyData };
+    }, [extent3857, extent4326, dimensions, day, hour, metric, dailyData]);
 
     const lons = dimensions?.lons;
     const lats = dimensions?.lats;
@@ -60,14 +75,10 @@ export function useWebGLWeatherLayer({
     useEffect(() =>
     {
         const map = mapRef.current;
-        if (!map || !isMapReady || !extent3857 || !extent4326 || !lons || !lats) return;
+        if (!map || !isMapReady) return;
 
-        // Inicializa o array compartilhado se ele ainda não existir
-        if (!gridDataRef.current)
-        {
-            gridDataRef.current = new Float32Array(lons * lats);
-        }
-
+        // Se os dados de grid ainda não carregaram, registramos o ouvinte de qualquer forma,
+        // pois as referências internas (Refs) serão atualizadas assim que o dado chegar.
         const tileWidth = 256;
         const tileHeight = 256;
 
@@ -81,16 +92,31 @@ export function useWebGLWeatherLayer({
                 const activeExtent3857 = activeExtent3857Ref.current;
                 const activeExtent4326 = activeExtent4326Ref.current;
                 const activeDimensions = activeDimensionsRef.current;
-                const gridData = gridDataRef.current; // 🎯 Lê diretamente o array atualizado
+                const gridData = gridDataRef.current;
 
-                // Se o dado bruto ainda não chegou ou a matriz está zerada, retorna tile transparente
                 if (!activeExtent3857 || !activeExtent4326 || !activeDimensions || !gridData)
                 {
                     return tileData;
                 }
 
+                const tileExtent = tileGrid.getTileCoordExtent([z, x, y]);
+
+                // 🎯 LOG DE INVESTIGAÇÃO:
+                // Queremos ver se o loader entra no 'overlaps' ou se ele é descartado de cara
+                const overlaps = (
+                    tileExtent[0] < activeExtent3857[2] && tileExtent[2] > activeExtent3857[0] &&
+                    tileExtent[1] < activeExtent3857[3] && tileExtent[3] > activeExtent3857[1]
+                );
+
+                if (z === 8 || z === 9)
+                { // Níveis de zoom onde costuma dar o problema
+                    console.log(`[Zoom ${z}] Tile: ${x},${y} | Overlaps: ${overlaps} | Extent Tile: [${tileExtent.map(n => Math.round(n))}] | Extent Ativo: [${activeExtent3857.map(n => Math.round(n))}]`);
+                }
+
+                if (!overlaps) return tileData;
+
                 return fillTileDataWithReprojection({
-                    tileExtent: tileGrid.getTileCoordExtent([z, x, y]),
+                    tileExtent,
                     tileWidth,
                     tileHeight,
                     activeExtent3857,
@@ -102,85 +128,120 @@ export function useWebGLWeatherLayer({
             tileSize: [tileWidth, tileHeight],
             bandCount: 1,
             projection: "EPSG:3857",
-            wrapX: false
+            wrapX: false,
+            // 🎯 Força o OpenLayers a calcular as transições de zoom com base na View ativa do seu mapa
+            tileGrid: map.getView().getProjection().getExtent()
+                ? undefined // Deixa o OpenLayers usar o grid padrão da projeção global
+                : undefined
         });
         tileSourceRef.current = dataTileSource;
 
+        // 2. Criamos a camada WebGL
         const webglLayer = new WebGLTileLayer({
             source: dataTileSource,
             style: METRIC_STYLES[metric],
-            extent: extent3857,
+            // 🎯 REMOVIDO: 'extent: extent3857 || undefined'
+            // Remover isso evita o clipping (corte de renderização) agressivo que faz a camada sumir no zoom.
             zIndex
         });
         webglLayerRef.current = webglLayer;
         map.addLayer(webglLayer);
 
-        // EVENTO DE HOVER
+        // EVENTO DE HOVER SEGURO
         const handlePointerMove = (evt: MapBrowserEvent<PointerEvent>) =>
         {
             const coord = evt.coordinate;
             const activeExtent = activeExtent3857Ref.current;
             const activeDimensions = activeDimensionsRef.current;
+            const { dailyData: currentData, metric: activeMetric, hour: activeHour } = stateRef.current;
 
-            if (!activeExtent || !activeDimensions) return;
+            // Coleta o evento de mouse do navegador para obter as coordenadas na viewport da tela
+            const nativeEvent = evt.originalEvent;
 
-            if (coord[0] >= activeExtent[0] && coord[0] <= activeExtent[2] &&
-                coord[1] >= activeExtent[1] && coord[1] <= activeExtent[3])
+            if (!activeExtent || !activeDimensions || !currentData || !nativeEvent)
             {
+                onHover(null);
+                return;
+            }
 
-                const { day: activeDay, metric: activeMetric, hour: activeHour } = stateRef.current;
-
-                getOrFetchDay(activeDay).then((dailyData) =>
+            if (
+                coord[0] >= activeExtent[0] && coord[0] <= activeExtent[2] &&
+                coord[1] >= activeExtent[1] && coord[1] <= activeExtent[3]
+            )
+            {
+                const rawMetrics = currentData.metrics[activeMetric];
+                if (!rawMetrics)
                 {
-                    if (!dailyData) return;
-                    const rawMetrics = dailyData.metrics[activeMetric];
-                    if (!rawMetrics) return;
+                    onHover(null);
+                    return;
+                }
 
-                    const flatMetricsArray = rawMetrics as number[];
-                    const lonPct = (coord[0] - activeExtent[0]) / (activeExtent[2] - activeExtent[0]);
-                    const latPct = (coord[1] - activeExtent[1]) / (activeExtent[3] - activeExtent[1]);
+                const coord4326 = transform(coord, "EPSG:3857", "EPSG:4326");
+                const lon = coord4326[0];
+                const lat = coord4326[1];
 
-                    const xIdx = Math.min(Math.floor(lonPct * lons), lons - 1);
-                    const yIdx = Math.min(Math.floor(latPct * lats), lats - 1);
+                const lonPct = (coord[0] - activeExtent[0]) / (activeExtent[2] - activeExtent[0]);
+                const latPct = (coord[1] - activeExtent[1]) / (activeExtent[3] - activeExtent[1]);
 
-                    const hourOffset = activeHour * lats * lons;
-                    const dataIndex = hourOffset + (yIdx * lons) + xIdx;
+                const xIdx = Math.min(Math.floor(lonPct * activeDimensions.lons), activeDimensions.lons - 1);
+                const yIdx = Math.min(Math.floor(latPct * activeDimensions.lats), activeDimensions.lats - 1);
 
-                    let val = flatMetricsArray[dataIndex];
-                    if (val !== undefined && !isNaN(val) && val < 10000000000)
+                const hourOffset = activeHour * activeDimensions.lats * activeDimensions.lons;
+                const dataIndex = hourOffset + (yIdx * activeDimensions.lons) + xIdx;
+
+                const val = rawMetrics[dataIndex];
+                if (val !== undefined && !isNaN(val) && val < 10000000000)
+                {
+                    let processedVal = val;
+                    if (activeMetric === "temperature" && processedVal > 100)
                     {
-                        if (activeMetric === "temperature" && val > 100) val -= 273.15;
-                        console.log(`[Hover] ${activeMetric}: ${val.toFixed(2)}`);
+                        processedVal -= 273.15;
                     }
-                });
+
+                    onHover({
+                        value: processedVal,
+                        lat,
+                        lon,
+                        pixel: [nativeEvent.clientX, nativeEvent.clientY]
+                    });
+                } else
+                {
+                    onHover(null);
+                }
+            } else
+            {
+                onHover(null);
             }
         };
 
-        const eventKey = "pointermove" as "postrender";
-        const strictListener = handlePointerMove as unknown as (evt: import("ol/render/Event").default) => void;
-        map.on(eventKey, strictListener);
+        // 2. Para registrar no OL de forma limpa, fazemos o cast do handler para uma função de assinatura genérica do OpenLayers
+        const eventType = "pointermove";
+        const listener = handlePointerMove as (evt: import("ol/events/Event").default) => void;
+
+        map.on(eventType, listener);
 
         return () =>
         {
             map.removeLayer(webglLayer);
-            map.un(eventKey, strictListener);
+            map.un(eventType, listener);
             tileSourceRef.current = null;
             webglLayerRef.current = null;
         };
-    }, [mapRef, isMapReady, extent3857, extent4326, lons, lats, zIndex]);
+        // 🎯 Removido dependências estritas de dados brutos que travavam o registro do evento
+    }, [mapRef, isMapReady, zIndex]);
 
     // 2. ATUALIZAÇÃO DA TEXTURA WEBGL
     useEffect(() =>
     {
-        const updatePixels = async () =>
+        const updateLayerState = () =>
         {
-            const dailyData = await getOrFetchDay(day);
             if (!dailyData || !tileSourceRef.current || !webglLayerRef.current || !lons || !lats) return;
+
+            console.log("🔄 [Efeito Atualização] Executando updateLayerState. O tileSource está sendo resetado!");
 
             const rawMetrics = dailyData.metrics[metric];
             if (!rawMetrics) return;
 
-            const flatMetricsArray = rawMetrics as number[];
             const flatData = new Float32Array(lons * lats);
             const hourOffset = hour * lats * lons;
             let index = 0;
@@ -190,7 +251,7 @@ export function useWebGLWeatherLayer({
                 for (let x = 0; x < lons; x++)
                 {
                     const dataIndex = hourOffset + (y * lons) + x;
-                    let val = flatMetricsArray[dataIndex];
+                    let val = rawMetrics[dataIndex];
 
                     if (val === undefined || isNaN(val) || val > 10000000000) val = 0;
                     if (metric === "temperature" && val > 100) val -= 273.15;
@@ -198,19 +259,28 @@ export function useWebGLWeatherLayer({
                 }
             }
 
-            // 🎯 ESCRITA DIRETA NA REFERÊNCIA: 
-            // O loader passa a enxergar estes novos valores imediatamente no próximo ciclo de desenho.
             gridDataRef.current = flatData;
 
             webglLayerRef.current.setStyle(METRIC_STYLES[metric]);
 
-            // Força o OpenLayers a redesenhar a GPU
+            tileSourceRef.current.clear();
+            tileSourceRef.current.refresh();
+
+            // 🎯 Força o OpenLayers a recalcular e redesenhar os buffers WebGL imediatamente
+            mapRef.current?.render();
+
+            if (extent3857)
+            {
+                webglLayerRef.current.setExtent(extent3857);
+            }
+            webglLayerRef.current.setStyle(METRIC_STYLES[metric]);
+
             tileSourceRef.current.clear();
             tileSourceRef.current.refresh();
             tileSourceRef.current.changed();
             mapRef.current?.render();
         };
 
-        updatePixels();
-    }, [day, hour, metric, getOrFetchDay, lons, lats, mapRef]);
+        updateLayerState();
+    }, [dailyData, hour, metric, extent3857, lons, lats, mapRef]);
 }

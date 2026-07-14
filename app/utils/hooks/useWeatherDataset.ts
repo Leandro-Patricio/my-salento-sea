@@ -1,22 +1,26 @@
 import { useState, useEffect } from "react";
 import { transformExtent } from "ol/proj";
-import { useWeatherData } from "@/app/components/MainMapPage/Contexts/WeatherDataContext";
+import { DailySliceResponse } from "../types/weatherGrid";
 
-
-type useWeatherDatasetType = {
-    day: number;
-
+export interface WeatherDatasetState
+{
+    extent3857: number[] | null;
+    extent4326: number[] | null;
+    dimensions: { lons: number; lats: number } | null;
+    dailyData: DailySliceResponse | null; // 🎯 Tipagem estrita e oficial
 }
 
-export function useWeatherDataset({ day }: useWeatherDatasetType)
+export function useWeatherDataset(
+    day: number,
+    getOrFetchDay: (day: number) => Promise<DailySliceResponse | null>
+): WeatherDatasetState
 {
-    const { getOrFetchDay } = useWeatherData();
-
-    const [dataset, setDataset] = useState<{
-        extent3857: number[] | null;
-        extent4326: number[] | null;
-        dimensions: { lons: number; lats: number } | null;
-    }>({ extent3857: null, extent4326: null, dimensions: null });
+    const [dataset, setDataset] = useState<WeatherDatasetState>({
+        extent3857: null,
+        extent4326: null,
+        dimensions: null,
+        dailyData: null
+    });
 
     useEffect(() =>
     {
@@ -40,7 +44,8 @@ export function useWeatherDataset({ day }: useWeatherDatasetType)
             setDataset({
                 extent3857,
                 extent4326,
-                dimensions: { lons: nLons, lats: nLats }
+                dimensions: { lons: nLons, lats: nLats },
+                dailyData
             });
         });
 
