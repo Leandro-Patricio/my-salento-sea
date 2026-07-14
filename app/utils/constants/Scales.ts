@@ -1,6 +1,9 @@
+import { Style } from "ol/layer/WebGLTile";
+
 export type MetricType = "temperature" | "wind_speed" | "wind_dir";
 
-export const METRIC_STYLES: Record<MetricType, any> = {
+// 🎯 Tipagem estrita usando o Style do WebGLTile do OpenLayers
+export const METRIC_STYLES: Record<MetricType, Style> = {
     temperature: {
         color: [
             "interpolate",
@@ -29,14 +32,13 @@ export const METRIC_STYLES: Record<MetricType, any> = {
             "interpolate",
             ["linear"],
             ["band", 1],
-            0, [0, 0, 0, 0],   // Norte = Vermelho
+            0, [0, 0, 0, 0],         // Norte = Vermelho
             90, [0, 255, 0, 0.6],   // Leste = Verde
             180, [0, 0, 255, 0.6],   // Sul = Azul
             270, [255, 255, 0, 0.6], // Oeste = Amarelo
         ],
     },
 };
-
 
 export interface MetricConfig
 {
@@ -45,7 +47,6 @@ export interface MetricConfig
     icon: string;
 }
 
-// Constante estática e universal de referência
 export const STATIC_METRICS_LIST: MetricConfig[] = [
     { id: "temperature", name: "Temperatura", icon: "🌡️" },
     { id: "wind_speed", name: "Velocidade do Vento", icon: "💨" },
