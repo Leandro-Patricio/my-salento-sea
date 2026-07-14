@@ -8,6 +8,7 @@ import { tileLayerType } from "@/app/utils/constants/BaseTyleLayers";
 import BuoysComponent from "./components/Buoys/BuoysWithPopup";
 import { WeatherDataProvider } from "./Contexts/WeatherDataContext";
 import TimelineSlider from "./components/TimelineSlider/TimelineSlider";
+import WeatherLayer from "./components/WeatherLayer/WeatherLayer";
 
 
 // Import dinâmico com SSR desabilitado para performance e segurança de build
@@ -37,6 +38,7 @@ export default function MainMapPage({ points, initialBasemap }: MainMapPageProps
             <WeatherDataProvider >
                 <main className="h-full w-full">
                     <SalentoMap />
+                    <WeatherLayer />
                     <LeftMenu />
                     <RightMenu />
                     <BuoysComponent />

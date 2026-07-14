@@ -96,7 +96,6 @@ export async function GET(request: NextRequest)
         }
 
         const timesSlice = Array.from(allTimes.slice(startTimeIndex, endTimeIndex));
-        const stepsInDay = timesSlice.length;
 
         // 5. Extrai as fatias tridimensionais usando fatiamento nativo do H5WASM (Slicing)
         // O motor C/Wasm faz o corte diretamente no binário de forma absurdamente rápida
@@ -109,37 +108,40 @@ export async function GET(request: NextRequest)
             [startTimeIndex, endTimeIndex],
             [0, numLats],
             [0, numLons]
-        ]) as number[][][];
+        ]) as NetCDFSlices | null;
 
         const windSpeed3D = speedDataset?.slice([
             [startTimeIndex, endTimeIndex],
             [0, numLats],
             [0, numLons]
-        ]) as number[][][];
+        ]) as NetCDFSlices | null;
 
         const windDir3D = dirDataset?.slice([
             [startTimeIndex, endTimeIndex],
             [0, numLats],
             [0, numLons]
-        ]) as number[][][];
+        ]) as NetCDFSlices | null;
 
-        // Fecha os handles do arquivo virtual para liberar memória RAM
+        // Fecha os handles do arquivo virtual para liberar memória RAM (Mantenha este bloco)
         file.close();
         wasmFS?.unlink(vPath);
 
-        // 6. Monta e retorna o payload limpo
+        const rawTemperature = Array.from(temperature3D as unknown as Float32Array);
+        const rawWindSpeed = Array.from(windSpeed3D as unknown as Float32Array);
+        const rawWindDir = Array.from(windDir3D as unknown as Float32Array);
+
+        // Monta e retorna o payload limpo seguindo estritamente a tipagem DailySliceResponse
         const dailySliceData: DailySliceResponse = {
             day: dayIndex,
             lats: Array.from(lats),
             lons: Array.from(lons),
             times: timesSlice,
             metrics: {
-                temperature: temperature3D,
-                wind_speed: windSpeed3D,
-                wind_dir: windDir3D,
+                temperature: rawTemperature,
+                wind_speed: rawWindSpeed,
+                wind_dir: rawWindDir,
             },
         };
-        console.log(`dailySliceData`);
 
         return NextResponse.json(dailySliceData);
     } catch (error)
@@ -148,3 +150,7 @@ export async function GET(request: NextRequest)
         return new NextResponse("Erro interno ao processar dados meteorológicos.", { status: 500 });
     }
 }
+
+type Numeric2D = number[][];
+type Numeric3D = number[][][];
+type NetCDFSlices = Numeric2D | Numeric3D;

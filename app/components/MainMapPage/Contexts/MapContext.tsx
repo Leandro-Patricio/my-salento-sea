@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, ReactNode, useState, useEffect, useMemo, RefObject } from "react";
+import { createContext, useContext, useRef, ReactNode, useState, useEffect, useMemo, RefObject, useCallback } from "react";
 import Map from "ol/Map";
 import { Buoys } from "@/app/utils/types/buoys";
 import { windowSizeType } from "@/app/utils/types/diverse";
@@ -60,20 +60,21 @@ export function MapProvider({ children, points, initialBasemap }: MapProviderPro
     }, []);
 
 
-    const setMap = (map: Map) =>
+    const setMap = useCallback((map: Map) =>
     {
         mapRef.current = map;
         setIsMapReady(true);
-    };
+    }, []);
 
-    const clearMap = () =>
+    // 🎯 MEMORIZAÇÃO: clearMap agora possui a mesma referência de memória para sempre
+    const clearMap = useCallback(() =>
     {
         mapRef.current = null;
         setIsMapReady(false);
-    };
+    }, []);
 
-
-    const changeBasemap = (url: tileLayerType) =>
+    // 🎯 MEMORIZAÇÃO: changeBasemap agora possui a mesma referência de memória para sempre
+    const changeBasemap = useCallback((url: tileLayerType) =>
     {
         const map = mapRef.current;
         if (!map) return;
@@ -83,7 +84,7 @@ export function MapProvider({ children, points, initialBasemap }: MapProviderPro
         {
             layers[0].setSource(new XYZ({ url }));
         }
-    };
+    }, []);
 
     const contextValue = useMemo(() => ({
         mapRef,
@@ -94,15 +95,7 @@ export function MapProvider({ children, points, initialBasemap }: MapProviderPro
         windowSize,
         changeBasemap,
         activeTileLayer,
-    }), [
-        // Coloque aqui TUDO o que é estado ou prop mutável
-        points,
-        isMapReady,
-        windowSize,
-        activeTileLayer
-        // Nota: mapRef, setMap e clearMap são referências/funções estáveis, 
-        // então não precisam (e não devem) entrar aqui porque a referência delas nunca muda.
-    ]);
+    }), [setMap, clearMap, points, isMapReady, windowSize, changeBasemap, activeTileLayer]);
 
     return (
         <MapContext.Provider value={contextValue}>
